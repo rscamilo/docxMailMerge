@@ -13,98 +13,107 @@ export async function docxMailMerge(templateUriString, jsonData) {
   }
 
   function generateTableXml(tableData) {
-    const colWidths = Array(tableData[0].length).fill(Math.floor(5000 / tableData[0].length));
+    const numCols = tableData[0].length;
+    const totalRelativeWidth = 5000;
+    const colWidths = Array(numCols).fill(0).map(() => Math.floor(totalRelativeWidth / numCols));
+
+    let sumOfColWidths = colWidths.reduce((sum, width) => sum + width, 0);
+    let diff = totalRelativeWidth - sumOfColWidths;
+
+    if (diff !== 0) {
+      colWidths[colWidths.length - 1] += diff;
+    }
     const gridXml = colWidths.map(w => `<w:gridCol w:w="${w}"/>`).join('');
+
     const rowsXml = tableData.map(row => {
-      const cellsXml = row.map((cellContent, colIndex) => `
+      const cellsXml = row.map((cellContent, colIndex) => {
+        return `
           <w:tc>
             <w:tcPr>
               <w:tcW w:w="${colWidths[colIndex]}" w:type="dxa"/>
               <w:tcBorders>
-                <w:top w:val="single" w:sz="2" w:space="0" w:color="000000"/>
-                <w:start w:val="single" w:sz="2" w:space="0" w:color="000000"/>
-                <w:bottom w:val="single" w:sz="2" w:space="0" w:color="000000"/>
-                <w:end w:val="single" w:sz="2" w:space="0" w:color="000000"/>
+                <w:top w:val="single" w:sz="4" w:space="0" w:color="000000"/>
+                <w:left w:val="single" w:sz="4" w:space="0" w:color="000000"/>
+                <w:bottom w:val="single" w:sz="4" w:space="0" w:color="000000"/>
+                <w:right w:val="single" w:sz="4" w:space="0" w:color="000000"/>
               </w:tcBorders>
             </w:tcPr>
             <w:p>
               <w:pPr>
-                <w:pStyle w:val="TableContents"/>
                 <w:jc w:val="center"/>
               </w:pPr>
               <w:r>
-                <w:rPr/>
                 <w:t>${cellContent}</w:t>
               </w:r>
             </w:p>
           </w:tc>
-        `).join('');
-      return `<w:tr><w:trPr/>${cellsXml}</w:tr>`;
-    }).join('');
-    return `
-        <w:tbl>
-          <w:tblPr>
-            <w:tblW w:w="5000" w:type="pct"/>
-            <w:tblBorders>
-              <w:top w:val="single" w:sz="4" w:space="0" w:color="000000"/>
-              <w:start w:val="single" w:sz="4" w:space="0" w:color="000000"/>
-              <w:bottom w:val="single" w:sz="4" w:space="0" w:color="000000"/>
-              <w:end w:val="single" w:sz="4" w:space="0" w:color="000000"/>
-            </w:tblBorders>
-            <w:tblCellMar>
-              <w:top w:w="28" w:type="dxa"/>
-              <w:start w:w="28" w:type="dxa"/>
-              <w:bottom w:w="28" w:type="dxa"/>
-              <w:end w:w="28" w:type="dxa"/>
-            </w:tblCellMar>
-          </w:tblPr>
-          <w:tblGrid>${gridXml}</w:tblGrid>
-          ${rowsXml}
-        </w:tbl>
-      `;
-  }
+        `;
+      });
 
+      return `<w:tr>${cellsXml.join('')}</w:tr>`;
+    }).join('');
+
+    return `
+      <w:tbl>
+        <w:tblPr>
+          <w:tblW w:w="5000" w:type="pct"/>
+          <w:tblBorders>
+            <w:top w:val="single" w:sz="4" w:space="0" w:color="000000"/>
+            <w:left w:val="single" w:sz="4" w:space="0" w:color="000000"/>
+            <w:bottom w:val="single" w:sz="4" w:space="0" w:color="000000"/>
+            <w:right w:val="single" w:sz="4" w:space="0" w:color="000000"/>
+            <w:insideH w:val="single" w:sz="4" w:space="0" w:color="000000"/>
+            <w:insideV w:val="single" w:sz="4" w:space="0" w:color="000000"/>
+          </w:tblBorders>
+          <w:tblLook w:val="04A0" w:firstRow="1" w:lastRow="0" w:firstColumn="1" w:lastColumn="0" w:noHBand="0" w:noVBand="1"/>
+        </w:tblPr>
+        <w:tblGrid>${gridXml}</w:tblGrid>
+        ${rowsXml}
+      </w:tbl>
+    `;
+  }
+  
   function generateImageXml(imageRelId, cx, cy) {
     return `
-        <w:drawing>
-          <wp:inline distT="0" distB="0" distL="0" distR="0">
-            <wp:extent cx="${cx}" cy="${cy}"/>
-            <wp:effectExtent l="0" t="0" r="0" b="0"/>
-            <wp:docPr id="${parseInt(imageRelId.replace('rId', ''), 10)}" name="Figura1"/>
-            <wp:cNvGraphicFramePr>
-              <a:graphicFrameLocks xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" noChangeAspect="1"/>
-            </wp:cNvGraphicFramePr>
-            <a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">
-              <a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture">
-                <pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture">
-                  <pic:nvPicPr>
-                    <pic:cNvPr id="${parseInt(imageRelId.replace('rId', ''), 10)}" name="Figura1"/>
-                    <pic:cNvPicPr>
-                      <a:picLocks noChangeAspect="1"/>
-                    </pic:cNvPicPr>
-                  </pic:nvPicPr>
-                  <pic:blipFill>
-                    <a:blip r:embed="${imageRelId}"/>
-                    <a:stretch>
-                      <a:fillRect/>
-                    </a:stretch>
-                  </pic:blipFill>
-                  <pic:spPr bwMode="auto">
-                    <a:xfrm>
-                      <a:off x="0" y="0"/>
-                      <a:ext cx="${cx}" cy="${cy}"/>
-                    </a:xfrm>
-                    <a:prstGeom prst="rect">
-                      <a:avLst/>
-                    </a:prstGeom>
-                    <a:noFill/>
-                  </pic:spPr>
-                </pic:pic>
-              </a:graphicData>
-            </a:graphic>
-          </wp:inline>
-        </w:drawing>
-      `;
+      <w:drawing>
+        <wp:inline distT="0" distB="0" distL="0" distR="0">
+          <wp:extent cx="${cx}" cy="${cy}"/>
+          <wp:effectExtent l="0" t="0" r="0" b="0"/>
+          <wp:docPr id="${parseInt(imageRelId.replace('rId', ''), 10)}" name="Figura1"/>
+          <wp:cNvGraphicFramePr>
+            <a:graphicFrameLocks xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" noChangeAspect="1"/>
+          </wp:cNvGraphicFramePr>
+          <a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">
+            <a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture">
+              <pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture">
+                <pic:nvPicPr>
+                  <pic:cNvPr id="${parseInt(imageRelId.replace('rId', ''), 10)}" name="Figura1"/>
+                  <pic:cNvPicPr>
+                    <a:picLocks noChangeAspect="1"/>
+                  </pic:cNvPicPr>
+                </pic:nvPicPr>
+                <pic:blipFill>
+                  <a:blip r:embed="${imageRelId}"/>
+                  <a:stretch>
+                    <a:fillRect/>
+                  </a:stretch>
+                </pic:blipFill>
+                <pic:spPr bwMode="auto">
+                  <a:xfrm>
+                    <a:off x="0" y="0"/>
+                    <a:ext cx="${cx}" cy="${cy}"/>
+                  </a:xfrm>
+                  <a:prstGeom prst="rect">
+                    <a:avLst/>
+                  </a:prstGeom>
+                  <a:noFill/>
+                </pic:spPr>
+              </pic:pic>
+            </a:graphicData>
+          </a:graphic>
+        </wp:inline>
+      </w:drawing>
+    `;
   }
 
   async function processImage(zip, documentXml, placeholder, imageBase64, width, height) {
